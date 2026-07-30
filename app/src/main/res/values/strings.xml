@@ -1,0 +1,38 @@
+<resources>
+    <string name="app_name">Uber Net Calc</string>
+    <string name="settings_title">Uber Net Calculator</string>
+    
+    <!-- Fuel Settings -->
+    <string name="fuel_type_label">Combustible Activo</string>
+    <string name="fuel_nafta">Nafta</string>
+    <string name="fuel_gnc">GNC</string>
+    
+    <string name="price_nafta_label">Precio por litro Nafta ($)</string>
+    <string name="price_gnc_label">Precio por litro GNC ($)</string>
+    <string name="consumption_label">Rendimiento (km por litro)</string>
+    
+    <!-- Profit thresholds -->
+    <string name="threshold_title">Umbrales de Ganancia Neta ($ / km)</string>
+    <string name="threshold_green_label">Rendimiento Alto (Verde) - Mayor o igual a:</string>
+    <string name="threshold_red_label">Rendimiento Bajo (Rojo) - Menor a:</string>
+    
+    <!-- Accessibility Service -->
+    <string name="accessibility_service_name">Calculador Uber Net</string>
+    <string name="accessibility_service_desc">Servicio de accesibilidad para leer los datos de viajes entrantes en la aplicación de Uber y calcular las ganancias netas por kilómetro.</string>
+    
+    <!-- Buttons & Helpers -->
+    <string name="save_settings">Guardar Configuración</string>
+    <string name="enable_service">Activar Servicio de Accesibilidad</string>
+    <string name="simulation_title">Simulador de Viajes (Pruebas)</string>
+    <string name="sim_price_label">Precio Ofrecido ($)</string>
+    <string name="sim_dist_label">Distancia (km)</string>
+    <string name="btn_simulate">Simular Oferta Uber</string>
+    
+    <string name="settings_saved">¡Configuración guardada!</string>
+    <string name="overlay_close">Cerrar</string>
+    
+    <!-- Overlay texts -->
+    <string name="overlay_net_gain">Neto por km:</string>
+    <string name="overlay_fuel_cost">Costo Combustible:</string>
+    <string name="overlay_gross_gain">Bruto por km:</string>
+</resources>

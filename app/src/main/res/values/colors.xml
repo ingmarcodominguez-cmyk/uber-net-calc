@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    
+    <!-- Premium Dark Theme Palette -->
+    <color name="bg_dark">#12131C</color>
+    <color name="bg_card">#1B1C28</color>
+    <color name="primary">#6200EE</color>
+    <color name="primary_light">#3700B3</color>
+    <color name="accent">#00E676</color>
+    
+    <!-- Text Colors -->
+    <color name="text_primary">#F3F4F6</color>
+    <color name="text_secondary">#9CA3AF</color>
+    <color name="text_dark">#374151</color>
+    
+    <!-- Threshold Colors -->
+    <color name="profit_high">#00C853</color>
+    <color name="profit_medium">#FFD600</color>
+    <color name="profit_low">#D50000</color>
+    
+    <!-- Overlay Glassmorphism components -->
+    <color name="overlay_bg">#E61A1B29</color> <!-- 90% opacity deep dark blue -->
+    <color name="overlay_border">#33FFFFFF</color> <!-- 20% opacity white border -->
+</resources>
