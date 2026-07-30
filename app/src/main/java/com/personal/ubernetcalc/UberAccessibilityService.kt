@@ -50,7 +50,7 @@ class UberAccessibilityService : AccessibilityService() {
         
         // Register receiver for simulation
         val filter = IntentFilter("com.personal.ubernetcalc.SIMULATE_TRIP")
-        simulationReceiver = object : BroadcastReceiver() {
+        val receiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 if (intent != null) {
                     val price = intent.getFloatExtra("price", 0f)
@@ -60,8 +60,9 @@ class UberAccessibilityService : AccessibilityService() {
                 }
             }
         }
+        simulationReceiver = receiver
         // Register receiver with appropriate flags for Android 14/15/16 compatibility
-        ContextCompat.registerReceiver(this, simulationReceiver, filter, ContextCompat.RECEIVER_EXPORTED)
+        ContextCompat.registerReceiver(this, receiver, filter, ContextCompat.RECEIVER_EXPORTED)
     }
 
     override fun onServiceConnected() {
@@ -92,8 +93,8 @@ class UberAccessibilityService : AccessibilityService() {
     override fun onDestroy() {
         super.onDestroy()
         removeOverlay()
-        if (simulationReceiver != null) {
-            unregisterReceiver(simulationReceiver)
+        simulationReceiver?.let {
+            unregisterReceiver(it)
         }
     }
 
