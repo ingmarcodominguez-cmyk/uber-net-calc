@@ -18,6 +18,7 @@ import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.ImageButton
 import android.widget.TextView
+import androidx.core.content.ContextCompat
 import java.util.Locale
 import java.util.regex.Pattern
 
@@ -60,7 +61,7 @@ class UberAccessibilityService : AccessibilityService() {
             }
         }
         // Register receiver with appropriate flags for Android 14/15/16 compatibility
-        registerReceiver(simulationReceiver, filter, RECEIVER_EXPORTED)
+        ContextCompat.registerReceiver(this, simulationReceiver, filter, ContextCompat.RECEIVER_EXPORTED)
     }
 
     override fun onServiceConnected() {
