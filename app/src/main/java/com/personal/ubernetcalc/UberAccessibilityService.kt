@@ -120,24 +120,15 @@ class UberAccessibilityService : AccessibilityService() {
         var foundPrice: Float? = null
         val foundDistances = mutableListOf<Float>()
 
-        // Regular expression patterns tailored for Argentine style
-        // Price regex: matches "$ 3.450,20", "$4500", "AR$ 2.000", "$ 1.200"
-        val pricePattern = Pattern.compile("(?:AR)?\\$\\s*([\\d\\.]+)(?:,(\\d{2}))?", Pattern.CASE_INSENSITIVE)
-        // Distance regex: matches "7,2 km", "7.2 km", "7,2 kms", "7.2 kilómetros", "7 km"
+        // Patterns to match ARS prices and distances from the Uber Driver screen
+        val pricePattern = Pattern.compile("(?:ARS|AR\\$|\\$)\\s*([\\d\\.,]+)", Pattern.CASE_INSENSITIVE)
         val distancePattern = Pattern.compile("([\\d,\\.]+)\\s*(?:km|kms|kil\\u00f3metros|kilometros)", Pattern.CASE_INSENSITIVE)
 
         for (text in texts) {
             val priceMatcher = pricePattern.matcher(text)
             if (priceMatcher.find()) {
-                val priceStr = priceMatcher.group(1)?.replace(".", "") // remove thousands separator dot
-                val centsStr = priceMatcher.group(2)
-                
-                val parsed = if (centsStr != null) {
-                    "$priceStr.$centsStr".toFloatOrNull()
-                } else {
-                    priceStr?.toFloatOrNull()
-                }
-                
+                val rawPrice = priceMatcher.group(0) ?: ""
+                val parsed = cleanPrice(rawPrice)
                 if (parsed != null && (foundPrice == null || parsed > foundPrice)) {
                     foundPrice = parsed
                 }
@@ -145,7 +136,7 @@ class UberAccessibilityService : AccessibilityService() {
 
             val distanceMatcher = distancePattern.matcher(text)
             if (distanceMatcher.find()) {
-                val distanceStr = distanceMatcher.group(1)?.replace(",", ".") // convert comma to dot for parsing
+                val distanceStr = distanceMatcher.group(1)?.replace(",", ".")
                 val parsed = distanceStr?.toFloatOrNull()
                 if (parsed != null && !foundDistances.contains(parsed)) {
                     foundDistances.add(parsed)
@@ -182,6 +173,29 @@ class UberAccessibilityService : AccessibilityService() {
                 }
             }
         }
+    }
+
+    private fun cleanPrice(rawPrice: String): Float? {
+        // Remove currency symbols and spaces
+        var clean = rawPrice.replace("ARS", "", true)
+                            .replace("AR$", "", true)
+                            .replace("$", "")
+                            .trim()
+        
+        // If there's a comma followed by exactly two digits at the end (e.g., "1500,50")
+        if (clean.matches(Regex(".*,\\d{2}$"))) {
+            clean = clean.replace(".", "").replace(",", ".")
+        } 
+        // If there's a dot followed by exactly two digits at the end (e.g., "1500.50")
+        else if (clean.matches(Regex(".*\\.\\d{2}$"))) {
+            clean = clean.replace(",", "")
+        }
+        // Otherwise, remove all separators (treat as thousands)
+        else {
+            clean = clean.replace(".", "").replace(",", "")
+        }
+        
+        return clean.toFloatOrNull()
     }
 
     // Performs math and updates overlay views
