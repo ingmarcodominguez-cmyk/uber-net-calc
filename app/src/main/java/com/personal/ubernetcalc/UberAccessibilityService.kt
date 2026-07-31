@@ -64,7 +64,6 @@ class UberAccessibilityService : AccessibilityService() {
             }
         }
         simulationReceiver = receiver
-        // Register receiver with appropriate flags for Android 14/15/16 compatibility
         ContextCompat.registerReceiver(this, receiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
     }
 
@@ -83,52 +82,85 @@ class UberAccessibilityService : AccessibilityService() {
         if (event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED ||
             event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             
-            val texts = mutableSetOf<String>()
+            var foundOffer: Pair<Float, Float>? = null
             
-            // 1. Scan active window root
+            // 1. Try to find the offer in the active window root using card container search
             rootInActiveWindow?.let { root ->
-                traverseNode(root, texts)
+                foundOffer = findOfferInContainer(root)
                 root.recycle()
             }
             
-            // 2. Scan event source node and walk up to get the full tree of the event's window
-            event.source?.let { source ->
-                traverseNode(source, texts)
-                
-                // Walk up to root parent to make sure we scan everything in this specific window
-                var current: AccessibilityNodeInfo? = source
-                while (current?.parent != null) {
-                    val parent = current.parent
-                    // If we didn't start with the root, traverse this ancestor too
-                    traverseNode(parent, texts)
-                    
-                    // Recycle intermediate references
-                    val temp = current
-                    current = parent
-                    if (temp != source) {
-                        temp.recycle()
+            // 2. Try event source if not found yet
+            if (foundOffer == null) {
+                event.source?.let { source ->
+                    // Walk up to get root of source window
+                    var current: AccessibilityNodeInfo? = source
+                    while (current?.parent != null) {
+                        val parent = current.parent
+                        val temp = current
+                        current = parent
+                        if (temp != source) {
+                            temp.recycle()
+                        }
                     }
+                    current?.let { root ->
+                        foundOffer = findOfferInContainer(root)
+                        root.recycle()
+                    }
+                    source.recycle()
                 }
-                
-                // Finally recycle the root ancestor and the source reference
-                current?.recycle()
-                source.recycle()
             }
             
-            // 3. Scan all interactive windows (necessary for overlays/floating screens)
-            val allWindows = windows
-            if (!allWindows.isNullOrEmpty()) {
-                for (window in allWindows) {
-                    val root = window.root
-                    if (root != null) {
-                        traverseNode(root, texts)
-                        root.recycle()
+            // 3. Try other windows if not found yet
+            if (foundOffer == null) {
+                val allWindows = windows
+                if (!allWindows.isNullOrEmpty()) {
+                    for (window in allWindows) {
+                        if (foundOffer != null) break
+                        window.root?.let { root ->
+                            foundOffer = findOfferInContainer(root)
+                            root.recycle()
+                        }
                     }
                 }
             }
 
-            if (texts.isNotEmpty()) {
-                parseAndProcessTexts(texts.toList(), event.packageName?.toString())
+            // If we found a valid card containing both price and distance, trigger overlay
+            if (foundOffer != null) {
+                val (price, distance) = foundOffer!!
+                val distanceDetails = String.format(Locale.US, "%.1f km", distance)
+                
+                val logLine = "[${event.packageName}] OFERTA ENCONTRADA EN TARJETA: Price=$price, Dist=$distance"
+                lastScannedText = logLine
+                saveLogToFile(logLine)
+                
+                val now = System.currentTimeMillis()
+                val timeDiff = now - lastCalculationTime
+                if (price != lastPrice || distance != lastDistance || timeDiff > 8000) {
+                    lastPrice = price
+                    lastDistance = distance
+                    lastCalculationTime = now
+                    
+                    handler.post {
+                        Toast.makeText(this, "Lector (Tarjeta): Precio $price | Dist $distance km", Toast.LENGTH_SHORT).show()
+                    }
+                    showOverlayForCalculatedValues(price, distance, distanceDetails)
+                }
+            } else {
+                // Fallback: run the old flat text scan to keep broad compatibility
+                val texts = mutableSetOf<String>()
+                rootInActiveWindow?.let { root ->
+                    traverseNode(root, texts)
+                    root.recycle()
+                }
+                event.source?.let { source ->
+                    traverseNode(source, texts)
+                    source.recycle()
+                }
+                
+                if (texts.isNotEmpty()) {
+                    parseAndProcessTexts(texts.toList(), event.packageName?.toString())
+                }
             }
         }
     }
@@ -143,6 +175,93 @@ class UberAccessibilityService : AccessibilityService() {
         simulationReceiver?.let {
             unregisterReceiver(it)
         }
+    }
+
+    // Helper: Find all nodes that contain a distance tag
+    private fun findDistanceNodes(node: AccessibilityNodeInfo?, list: MutableList<AccessibilityNodeInfo>) {
+        if (node == null) return
+        
+        val text = node.text?.toString() ?: node.contentDescription?.toString() ?: ""
+        if (text.contains("km", ignoreCase = true) || text.contains("kms", ignoreCase = true) || text.contains("kilómetros", ignoreCase = true)) {
+            list.add(AccessibilityNodeInfo.obtain(node))
+        }
+        
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i)
+            findDistanceNodes(child, list)
+            child?.recycle()
+        }
+    }
+
+    // Helper: Traverse container nodes for texts
+    private fun traverseNodeSimple(node: AccessibilityNodeInfo?, texts: MutableList<String>) {
+        if (node == null) return
+        val text = node.text?.toString() ?: node.contentDescription?.toString() ?: ""
+        if (text.isNotEmpty()) {
+            texts.add(text)
+        }
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i)
+            traverseNodeSimple(child, texts)
+            child?.recycle()
+        }
+    }
+
+    private fun recycleNodeList(list: List<AccessibilityNodeInfo>) {
+        for (node in list) {
+            node.recycle()
+        }
+    }
+
+    // Smart contextual search: Finds a container holding both price and distance
+    private fun findOfferInContainer(root: AccessibilityNodeInfo): Pair<Float, Float>? {
+        val distanceNodes = mutableListOf<AccessibilityNodeInfo>()
+        findDistanceNodes(root, distanceNodes)
+        
+        val distancePattern = Pattern.compile("([\\d,\\.]+)\\s*(?:km|kms|kil\\u00f3metros|kilometros)", Pattern.CASE_INSENSITIVE)
+        val pricePattern = Pattern.compile("(?:ARS|AR\\$|\\$)\\s*([\\d\\.,]+)", Pattern.CASE_INSENSITIVE)
+
+        for (distNode in distanceNodes) {
+            // Walk up to 4 levels of parents to find the card container
+            var ancestor: AccessibilityNodeInfo? = distNode
+            for (level in 0..4) {
+                val parent = ancestor?.parent
+                if (parent != null) {
+                    val containerTexts = mutableListOf<String>()
+                    traverseNodeSimple(parent, containerTexts)
+                    
+                    val combinedText = containerTexts.joinToString(" ")
+                    
+                    var foundDist: Float? = null
+                    val distMatcher = distancePattern.matcher(combinedText)
+                    if (distMatcher.find()) {
+                        foundDist = distMatcher.group(1)?.replace(",", ".")?.toFloatOrNull()
+                    }
+                    
+                    var foundPrice: Float? = null
+                    val priceMatcher = pricePattern.matcher(combinedText)
+                    while (priceMatcher.find()) {
+                        val rawPrice = priceMatcher.group(0) ?: ""
+                        val parsed = cleanPrice(rawPrice)
+                        if (parsed != null && (foundPrice == null || parsed > foundPrice)) {
+                            foundPrice = parsed
+                        }
+                    }
+                    
+                    if (foundDist != null && foundPrice != null) {
+                        recycleNodeList(distanceNodes)
+                        return Pair(foundPrice, foundDist)
+                    }
+                    
+                    ancestor = parent
+                } else {
+                    break
+                }
+            }
+        }
+        
+        recycleNodeList(distanceNodes)
+        return null
     }
 
     // Recursively extracts all texts and content descriptions visible on the screen
@@ -176,13 +295,11 @@ class UberAccessibilityService : AccessibilityService() {
         }
     }
 
-    // Main text parser for Uber screen contents
+    // Main text parser for Uber screen contents (Fallback)
     private fun parseAndProcessTexts(texts: List<String>, eventPackage: String?) {
         val combinedText = texts.joinToString(" ")
         val logLine = "[$eventPackage] $combinedText"
         lastScannedText = logLine
-        
-        // Save log to cache file for diagnostic reading in the activity
         saveLogToFile(logLine)
         
         var foundPrice: Float? = null
@@ -218,7 +335,7 @@ class UberAccessibilityService : AccessibilityService() {
                 val priceMsg = if (foundPrice != null) "Precio: $foundPrice" else "Precio: No detectado"
                 val distMsg = if (foundDistances.isNotEmpty()) "Dist: $foundDistances" else "Dist: No detectada"
                 Log.d(tag, "Diag: $priceMsg | $distMsg")
-                Toast.makeText(this, "Lector: $priceMsg | $distMsg", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Lector (Fallback): $priceMsg | $distMsg", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -227,7 +344,6 @@ class UberAccessibilityService : AccessibilityService() {
             val distanceDetails: String
 
             if (foundDistances.size >= 2) {
-                // Usually first distance is pickup, second is trip
                 val pickupDist = foundDistances[0]
                 val tripDist = foundDistances[1]
                 totalDistance = pickupDist + tripDist
@@ -238,7 +354,6 @@ class UberAccessibilityService : AccessibilityService() {
             }
 
             if (totalDistance > 0.05f) {
-                // Apply debounce: only trigger calculation if values changed or it's been more than 8 seconds
                 val now = System.currentTimeMillis()
                 val timeDiff = now - lastCalculationTime
                 if (foundPrice != lastPrice || totalDistance != lastDistance || timeDiff > 8000) {
@@ -254,21 +369,17 @@ class UberAccessibilityService : AccessibilityService() {
     }
 
     private fun cleanPrice(rawPrice: String): Float? {
-        // Remove currency symbols and spaces
         var clean = rawPrice.replace("ARS", "", true)
                             .replace("AR$", "", true)
                             .replace("$", "")
                             .trim()
         
-        // If there's a comma followed by exactly two digits at the end (e.g., "1500,50")
         if (clean.matches(Regex(".*,\\d{2}$"))) {
             clean = clean.replace(".", "").replace(",", ".")
         } 
-        // If there's a dot followed by exactly two digits at the end (e.g., "1500.50")
         else if (clean.matches(Regex(".*\\.\\d{2}$"))) {
             clean = clean.replace(",", "")
         }
-        // Otherwise, remove all separators (treat as thousands)
         else {
             clean = clean.replace(".", "").replace(",", "")
         }
@@ -278,7 +389,6 @@ class UberAccessibilityService : AccessibilityService() {
 
     // Performs math and updates overlay views
     private fun showOverlayForCalculatedValues(price: Float, distance: Float, distanceDetails: String) {
-        // Load preferences
         val fuelType = sharedPreferences.getString("fuel_type", "nafta") ?: "nafta"
         val priceNafta = sharedPreferences.getFloat("price_nafta", 1100f)
         val priceGnc = sharedPreferences.getFloat("price_gnc", 500f)
@@ -286,14 +396,12 @@ class UberAccessibilityService : AccessibilityService() {
         val thGreen = sharedPreferences.getFloat("threshold_green", 250f)
         val thRed = sharedPreferences.getFloat("threshold_red", 120f)
 
-        // Mathematical model:
         val fuelPrice = if (fuelType == "gnc") priceGnc else priceNafta
         val fuelCostPerKm = fuelPrice / consumption
         val totalFuelCost = distance * fuelCostPerKm
         val netRatePerKm = (price / distance) - fuelCostPerKm
         val grossRatePerKm = price / distance
 
-        // Render on UI thread
         handler.post {
             createOrUpdateOverlayView(price, distance, distanceDetails, netRatePerKm, totalFuelCost, grossRatePerKm, thGreen, thRed, fuelType)
         }
@@ -327,7 +435,6 @@ class UberAccessibilityService : AccessibilityService() {
                 y = 150
             }
 
-            // Close button listener
             overlayView?.findViewById<ImageButton>(R.id.btn_close_overlay)?.setOnClickListener {
                 removeOverlay()
             }
@@ -335,20 +442,17 @@ class UberAccessibilityService : AccessibilityService() {
             windowManager?.addView(overlayView, lp)
         }
 
-        // Update Overlay UI Elements
         val tvOverlayTitle = overlayView?.findViewById<TextView>(R.id.tv_overlay_title)
         val tvNetGainVal = overlayView?.findViewById<TextView>(R.id.tv_net_gain_val)
         val tvProfitabilityTag = overlayView?.findViewById<TextView>(R.id.tv_profitability_tag)
         val tvFuelCostVal = overlayView?.findViewById<TextView>(R.id.tv_fuel_cost_val)
         val tvGrossGainVal = overlayView?.findViewById<TextView>(R.id.tv_gross_gain_val)
 
-        // Set Values
         tvOverlayTitle?.text = "Res. Neto • $distanceDetails"
         tvNetGainVal?.text = String.format(Locale.US, "+$%.2f / km", netRatePerKm)
         tvFuelCostVal?.text = String.format(Locale.US, "-$%.2f", totalFuelCost)
         tvGrossGainVal?.text = String.format(Locale.US, "$%.2f/km", grossRatePerKm)
 
-        // Set profitability color indicators and tags
         if (tvProfitabilityTag != null) {
             when {
                 netRatePerKm >= thGreen -> {
@@ -369,7 +473,6 @@ class UberAccessibilityService : AccessibilityService() {
             }
         }
 
-        // Schedule auto-dismiss in 15 seconds
         handler.removeCallbacks(dismissRunnable)
         handler.postDelayed(dismissRunnable, 15000)
     }
