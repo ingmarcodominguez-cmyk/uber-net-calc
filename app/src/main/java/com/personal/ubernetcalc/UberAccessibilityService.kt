@@ -40,6 +40,9 @@ class UberAccessibilityService : AccessibilityService() {
     private var lastDistance = 0f
     private var lastCalculationTime = 0L
 
+    // Throttling para evitar saturar el hilo principal en la simulación o uso real
+    private var lastEventProcessedTime = 0L
+
     // Handler to auto-dismiss overlay
     private val handler = Handler(Looper.getMainLooper())
     private val dismissRunnable = Runnable {
@@ -78,6 +81,24 @@ class UberAccessibilityService : AccessibilityService() {
         // Ignore events originating from our own application to prevent infinite loops and UI lag
         if (event.packageName?.toString() == packageName) return
         
+        // --- OPTIMIZACIÓN CLAVE ---
+        // Si el usuario está escribiendo en un campo de texto (EditText) de configuración, 
+        // ignoramos el evento por completo para evitar que se congele la interfaz.
+        val sourceNode = event.source
+        if (sourceNode?.className?.toString()?.contains("EditText") == true) {
+            sourceNode.recycle()
+            return
+        }
+        sourceNode?.recycle()
+
+        // Control de tiempo (Throttling): procesar pantalla como máximo cada 1000ms
+        val currentTime = System.currentTimeMillis()
+        if (currentTime - lastEventProcessedTime < 1000) {
+            return
+        }
+        lastEventProcessedTime = currentTime
+        // -------------------------
+
         // Scan for screen changes
         if (event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED ||
             event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
@@ -93,7 +114,6 @@ class UberAccessibilityService : AccessibilityService() {
             // 2. Try event source if not found yet
             if (foundOffer == null) {
                 event.source?.let { source ->
-                    // Walk up to get root of source window
                     var current: AccessibilityNodeInfo? = source
                     while (current?.parent != null) {
                         val parent = current.parent
@@ -177,7 +197,6 @@ class UberAccessibilityService : AccessibilityService() {
         }
     }
 
-    // Helper: Find all nodes that contain a distance tag
     private fun findDistanceNodes(node: AccessibilityNodeInfo?, list: MutableList<AccessibilityNodeInfo>) {
         if (node == null) return
         
@@ -193,7 +212,6 @@ class UberAccessibilityService : AccessibilityService() {
         }
     }
 
-    // Helper: Traverse container nodes for texts
     private fun traverseNodeSimple(node: AccessibilityNodeInfo?, texts: MutableList<String>) {
         if (node == null) return
         val text = node.text?.toString() ?: node.contentDescription?.toString() ?: ""
@@ -213,7 +231,6 @@ class UberAccessibilityService : AccessibilityService() {
         }
     }
 
-    // Smart contextual search: Finds a container holding both price and distance
     private fun findOfferInContainer(root: AccessibilityNodeInfo): Pair<Float, Float>? {
         val distanceNodes = mutableListOf<AccessibilityNodeInfo>()
         findDistanceNodes(root, distanceNodes)
@@ -222,7 +239,6 @@ class UberAccessibilityService : AccessibilityService() {
         val pricePattern = Pattern.compile("(?:ARS|AR\\$|\\$)\\s*([\\d\\.,]+)", Pattern.CASE_INSENSITIVE)
 
         for (distNode in distanceNodes) {
-            // Walk up to 4 levels of parents to find the card container
             var ancestor: AccessibilityNodeInfo? = distNode
             for (level in 0..4) {
                 val parent = ancestor?.parent
@@ -264,7 +280,6 @@ class UberAccessibilityService : AccessibilityService() {
         return null
     }
 
-    // Recursively extracts all texts and content descriptions visible on the screen
     private fun traverseNode(node: AccessibilityNodeInfo?, texts: MutableCollection<String>) {
         if (node == null) return
         
@@ -295,7 +310,6 @@ class UberAccessibilityService : AccessibilityService() {
         }
     }
 
-    // Main text parser for Uber screen contents (Fallback)
     private fun parseAndProcessTexts(texts: List<String>, eventPackage: String?) {
         val combinedText = texts.joinToString(" ")
         val logLine = "[$eventPackage] $combinedText"
@@ -305,11 +319,9 @@ class UberAccessibilityService : AccessibilityService() {
         var foundPrice: Float? = null
         val foundDistances = mutableListOf<Float>()
 
-        // Patterns to match ARS prices and distances from the Uber Driver screen
         val pricePattern = Pattern.compile("(?:ARS|AR\\$|\\$)\\s*([\\d\\.,]+)", Pattern.CASE_INSENSITIVE)
         val distancePattern = Pattern.compile("([\\d,\\.]+)\\s*(?:km|kms|kil\\u00f3metros|kilometros)", Pattern.CASE_INSENSITIVE)
 
-        // Find all prices in the combined text
         val priceMatcher = pricePattern.matcher(combinedText)
         while (priceMatcher.find()) {
             val rawPrice = priceMatcher.group(0) ?: ""
@@ -319,7 +331,6 @@ class UberAccessibilityService : AccessibilityService() {
             }
         }
 
-        // Find all distances in the combined text
         val distanceMatcher = distancePattern.matcher(combinedText)
         while (distanceMatcher.find()) {
             val distanceStr = distanceMatcher.group(1)?.replace(",", ".")
@@ -329,7 +340,6 @@ class UberAccessibilityService : AccessibilityService() {
             }
         }
 
-        // --- DIAGNOSTIC TOASTS ---
         handler.post {
             if (foundPrice != null || foundDistances.isNotEmpty()) {
                 val priceMsg = if (foundPrice != null) "Precio: $foundPrice" else "Precio: No detectado"
@@ -387,7 +397,6 @@ class UberAccessibilityService : AccessibilityService() {
         return clean.toFloatOrNull()
     }
 
-    // Performs math and updates overlay views
     private fun showOverlayForCalculatedValues(price: Float, distance: Float, distanceDetails: String) {
         val fuelType = sharedPreferences.getString("fuel_type", "nafta") ?: "nafta"
         val priceNafta = sharedPreferences.getFloat("price_nafta", 1100f)
