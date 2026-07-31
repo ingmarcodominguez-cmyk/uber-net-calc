@@ -39,6 +39,10 @@ class MainActivity : AppCompatActivity() {
         binding.btnSimulate.setOnClickListener {
             simulateTrip()
         }
+
+        binding.btnRefreshLog.setOnClickListener {
+            binding.tvLastScannedText.text = UberAccessibilityService.lastScannedText
+        }
     }
 
     private fun loadSettings() {
