@@ -1,5 +1,6 @@
 package com.personal.ubernetcalc
 
+import android.net.Uri
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
@@ -22,6 +23,7 @@ class MainActivity : AppCompatActivity() {
         sharedPreferences = getSharedPreferences("UberNetCalcPrefs", Context.MODE_PRIVATE)
 
         loadSettings()
+        checkOverlayPermission()
 
         binding.btnSave.setOnClickListener {
             saveSettings()
@@ -81,12 +83,28 @@ class MainActivity : AppCompatActivity() {
         Toast.makeText(this, getString(R.string.settings_saved), Toast.LENGTH_SHORT).show()
     }
 
+    private fun checkOverlayPermission() {
+        if (!Settings.canDrawOverlays(this)) {
+            val intent = Intent(
+                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                Uri.parse("package:$packageName")
+            )
+            startActivity(intent)
+            Toast.makeText(
+                this,
+                "Por favor, activa el permiso 'Mostrar sobre otras apps' para que la burbuja funcione",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
     private fun simulateTrip() {
         val price = binding.etSimPrice.text.toString().toFloatOrNull() ?: 3500f
         val distance = binding.etSimDist.text.toString().toFloatOrNull() ?: 8.5f
 
         // Send broadcast to UberAccessibilityService
         val intent = Intent("com.personal.ubernetcalc.SIMULATE_TRIP")
+        intent.setPackage(packageName)
         intent.putExtra("price", price)
         intent.putExtra("distance", distance)
         sendBroadcast(intent)
