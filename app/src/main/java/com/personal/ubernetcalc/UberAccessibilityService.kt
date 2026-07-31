@@ -74,6 +74,9 @@ class UberAccessibilityService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
         
+        // Ignore events originating from our own application to prevent infinite loops and UI lag
+        if (event.packageName?.toString() == packageName) return
+        
         // Scan for screen changes
         if (event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED ||
             event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
