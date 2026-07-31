@@ -74,16 +74,47 @@ class UberAccessibilityService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
         
-        // Only run scan on window content changes or window state changes
+        // Scan for screen changes
         if (event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED ||
             event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             
-            val rootNode = rootInActiveWindow ?: return
             val texts = mutableListOf<String>()
-            traverseNode(rootNode, texts)
-            rootNode.recycle()
+            
+            // 1. Scan all interactive windows (necessary for overlays/floating screens)
+            val allWindows = windows
+            var scannedAnyWindow = false
+            if (!allWindows.isNullOrEmpty()) {
+                for (window in allWindows) {
+                    val root = window.root
+                    if (root != null) {
+                        traverseNode(root, texts)
+                        root.recycle()
+                        scannedAnyWindow = true
+                    }
+                }
+            }
+            
+            // 2. Fallback to active window if window list was empty
+            if (!scannedAnyWindow) {
+                val rootNode = rootInActiveWindow
+                if (rootNode != null) {
+                    traverseNode(rootNode, texts)
+                    rootNode.recycle()
+                }
+            }
+            
+            // 3. Fallback to event source node
+            if (texts.isEmpty()) {
+                val sourceNode = event.source
+                if (sourceNode != null) {
+                    traverseNode(sourceNode, texts)
+                    sourceNode.recycle()
+                }
+            }
 
-            parseAndProcessTexts(texts)
+            if (texts.isNotEmpty()) {
+                parseAndProcessTexts(texts)
+            }
         }
     }
 
