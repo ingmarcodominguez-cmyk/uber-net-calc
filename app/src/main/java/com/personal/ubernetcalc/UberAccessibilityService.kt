@@ -10,6 +10,7 @@ import android.graphics.PixelFormat
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import android.view.ContextThemeWrapper
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
@@ -62,7 +63,7 @@ class UberAccessibilityService : AccessibilityService() {
         }
         simulationReceiver = receiver
         // Register receiver with appropriate flags for Android 14/15/16 compatibility
-        ContextCompat.registerReceiver(this, receiver, filter, ContextCompat.RECEIVER_EXPORTED)
+        ContextCompat.registerReceiver(this, receiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
     }
 
     override fun onServiceConnected() {
@@ -194,15 +195,10 @@ class UberAccessibilityService : AccessibilityService() {
         val thRed = sharedPreferences.getFloat("threshold_red", 120f)
 
         // Mathematical model:
-        // Fuel Price per liter
         val fuelPrice = if (fuelType == "gnc") priceGnc else priceNafta
-        // Fuel Cost per km
         val fuelCostPerKm = fuelPrice / consumption
-        // Total fuel cost for the trip
         val totalFuelCost = distance * fuelCostPerKm
-        // Net profit per km
         val netRatePerKm = (price / distance) - fuelCostPerKm
-        // Gross rate per km
         val grossRatePerKm = price / distance
 
         // Render on UI thread
@@ -223,7 +219,8 @@ class UberAccessibilityService : AccessibilityService() {
         fuelType: String
     ) {
         if (overlayView == null) {
-            val inflater = getSystemService(Context.LAYOUT_INFLATER_SERVICE) as LayoutInflater
+            val contextThemeWrapper = ContextThemeWrapper(this, R.style.Theme_UberNetCalculator)
+            val inflater = LayoutInflater.from(contextThemeWrapper)
             overlayView = inflater.inflate(R.layout.layout_overlay, null)
 
             val lp = WindowManager.LayoutParams().apply {
@@ -235,7 +232,7 @@ class UberAccessibilityService : AccessibilityService() {
                 width = WindowManager.LayoutParams.WRAP_CONTENT
                 height = WindowManager.LayoutParams.WRAP_CONTENT
                 gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-                y = 150 // Vertical offset from top of screen to not cover the notification bar
+                y = 150
             }
 
             // Close button listener
