@@ -81,42 +81,34 @@ class UberAccessibilityService : AccessibilityService() {
         if (event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED ||
             event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             
-            val texts = mutableListOf<String>()
+            val texts = mutableSetOf<String>()
             
-            // 1. Scan all interactive windows (necessary for overlays/floating screens)
+            // 1. Scan active window root
+            rootInActiveWindow?.let { root ->
+                traverseNode(root, texts)
+                root.recycle()
+            }
+            
+            // 2. Scan event source node
+            event.source?.let { source ->
+                traverseNode(source, texts)
+                source.recycle()
+            }
+            
+            // 3. Scan all interactive windows (necessary for overlays/floating screens)
             val allWindows = windows
-            var scannedAnyWindow = false
             if (!allWindows.isNullOrEmpty()) {
                 for (window in allWindows) {
                     val root = window.root
                     if (root != null) {
                         traverseNode(root, texts)
                         root.recycle()
-                        scannedAnyWindow = true
                     }
-                }
-            }
-            
-            // 2. Fallback to active window if window list was empty
-            if (!scannedAnyWindow) {
-                val rootNode = rootInActiveWindow
-                if (rootNode != null) {
-                    traverseNode(rootNode, texts)
-                    rootNode.recycle()
-                }
-            }
-            
-            // 3. Fallback to event source node
-            if (texts.isEmpty()) {
-                val sourceNode = event.source
-                if (sourceNode != null) {
-                    traverseNode(sourceNode, texts)
-                    sourceNode.recycle()
                 }
             }
 
             if (texts.isNotEmpty()) {
-                parseAndProcessTexts(texts)
+                parseAndProcessTexts(texts.toList())
             }
         }
     }
@@ -133,13 +125,18 @@ class UberAccessibilityService : AccessibilityService() {
         }
     }
 
-    // Recursively extracts all texts visible on the screen
-    private fun traverseNode(node: AccessibilityNodeInfo?, texts: MutableList<String>) {
+    // Recursively extracts all texts and content descriptions visible on the screen
+    private fun traverseNode(node: AccessibilityNodeInfo?, texts: MutableCollection<String>) {
         if (node == null) return
         
         val nodeText = node.text
         if (nodeText != null && nodeText.isNotEmpty()) {
             texts.add(nodeText.toString())
+        }
+        
+        val contentDesc = node.contentDescription
+        if (contentDesc != null && contentDesc.isNotEmpty() && contentDesc.toString() != nodeText?.toString()) {
+            texts.add(contentDesc.toString())
         }
 
         for (i in 0 until node.childCount) {
