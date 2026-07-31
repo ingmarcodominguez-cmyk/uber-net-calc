@@ -19,6 +19,7 @@ import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.ImageButton
 import android.widget.TextView
+import android.widget.Toast
 import androidx.core.content.ContextCompat
 import java.util.Locale
 import java.util.regex.Pattern
@@ -89,9 +90,27 @@ class UberAccessibilityService : AccessibilityService() {
                 root.recycle()
             }
             
-            // 2. Scan event source node
+            // 2. Scan event source node and walk up to get the full tree of the event's window
             event.source?.let { source ->
                 traverseNode(source, texts)
+                
+                // Walk up to root parent to make sure we scan everything in this specific window
+                var current: AccessibilityNodeInfo? = source
+                while (current?.parent != null) {
+                    val parent = current.parent
+                    // If we didn't start with the root, traverse this ancestor too
+                    traverseNode(parent, texts)
+                    
+                    // Recycle intermediate references
+                    val temp = current
+                    current = parent
+                    if (temp != source) {
+                        temp.recycle()
+                    }
+                }
+                
+                // Finally recycle the root ancestor and the source reference
+                current?.recycle()
                 source.recycle()
             }
             
@@ -174,6 +193,16 @@ class UberAccessibilityService : AccessibilityService() {
             val parsed = distanceStr?.toFloatOrNull()
             if (parsed != null && !foundDistances.contains(parsed)) {
                 foundDistances.add(parsed)
+            }
+        }
+
+        // --- DIAGNOSTIC TOASTS ---
+        handler.post {
+            if (foundPrice != null || foundDistances.isNotEmpty()) {
+                val priceMsg = if (foundPrice != null) "Precio: $foundPrice" else "Precio: No detectado"
+                val distMsg = if (foundDistances.isNotEmpty()) "Dist: $foundDistances" else "Dist: No detectada"
+                Log.d(tag, "Diag: $priceMsg | $distMsg")
+                Toast.makeText(this, "Lector: $priceMsg | $distMsg", Toast.LENGTH_SHORT).show()
             }
         }
 
