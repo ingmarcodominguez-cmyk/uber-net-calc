@@ -321,5 +321,70 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
+        <!-- Card: Diagnostic Log -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="24dp"
+            app:cardCornerRadius="16dp"
+            app:cardBackgroundColor="@color/bg_card"
+            app:strokeColor="@color/overlay_border"
+            app:strokeWidth="1dp"
+            app:cardElevation="4dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Consola de Diagnóstico"
+                    android:textColor="@color/accent"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="4dp"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Muestra las palabras leídas de la última pantalla detectada."
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp"
+                    android:layout_marginBottom="12dp"/>
+
+                <!-- Refresh Button -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_refresh_log"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:text="Actualizar Texto Detectado"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    app:cornerRadius="8dp"
+                    android:backgroundTint="#2D3142"
+                    android:textColor="@color/white"
+                    android:layout_marginBottom="12dp"
+                    app:strokeColor="@color/overlay_border"
+                    app:strokeWidth="1dp"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"/>
+
+                <!-- Scanned Text Display -->
+                <TextView
+                    android:id="@+id/tv_last_scanned_text"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="No se ha escaneado ninguna pantalla aún."
+                    android:textColor="@color/text_primary"
+                    android:textSize="12sp"
+                    android:fontFamily="monospace"
+                    android:background="#1E1E2E"
+                    android:padding="10dp"/>
+
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
     </LinearLayout>
 </ScrollView>
