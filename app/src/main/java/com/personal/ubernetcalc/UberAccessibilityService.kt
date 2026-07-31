@@ -2,7 +2,7 @@ package com.personal.ubernetcalc
 
 import android.accessibilityservice.AccessibilityService
 import android.content.BroadcastReceiver
-import android.content.Context
+import/android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.SharedPreferences
@@ -117,6 +117,8 @@ class UberAccessibilityService : AccessibilityService() {
 
     // Main text parser for Uber screen contents
     private fun parseAndProcessTexts(texts: List<String>) {
+        val combinedText = texts.joinToString(" ")
+        
         var foundPrice: Float? = null
         val foundDistances = mutableListOf<Float>()
 
@@ -124,23 +126,23 @@ class UberAccessibilityService : AccessibilityService() {
         val pricePattern = Pattern.compile("(?:ARS|AR\\$|\\$)\\s*([\\d\\.,]+)", Pattern.CASE_INSENSITIVE)
         val distancePattern = Pattern.compile("([\\d,\\.]+)\\s*(?:km|kms|kil\\u00f3metros|kilometros)", Pattern.CASE_INSENSITIVE)
 
-        for (text in texts) {
-            val priceMatcher = pricePattern.matcher(text)
-            if (priceMatcher.find()) {
-                val rawPrice = priceMatcher.group(0) ?: ""
-                val parsed = cleanPrice(rawPrice)
-                if (parsed != null && (foundPrice == null || parsed > foundPrice)) {
-                    foundPrice = parsed
-                }
+        // Find all prices in the combined text
+        val priceMatcher = pricePattern.matcher(combinedText)
+        while (priceMatcher.find()) {
+            val rawPrice = priceMatcher.group(0) ?: ""
+            val parsed = cleanPrice(rawPrice)
+            if (parsed != null && (foundPrice == null || parsed > foundPrice)) {
+                foundPrice = parsed
             }
+        }
 
-            val distanceMatcher = distancePattern.matcher(text)
-            if (distanceMatcher.find()) {
-                val distanceStr = distanceMatcher.group(1)?.replace(",", ".")
-                val parsed = distanceStr?.toFloatOrNull()
-                if (parsed != null && !foundDistances.contains(parsed)) {
-                    foundDistances.add(parsed)
-                }
+        // Find all distances in the combined text
+        val distanceMatcher = distancePattern.matcher(combinedText)
+        while (distanceMatcher.find()) {
+            val distanceStr = distanceMatcher.group(1)?.replace(",", ".")
+            val parsed = distanceStr?.toFloatOrNull()
+            if (parsed != null && !foundDistances.contains(parsed)) {
+                foundDistances.add(parsed)
             }
         }
 
