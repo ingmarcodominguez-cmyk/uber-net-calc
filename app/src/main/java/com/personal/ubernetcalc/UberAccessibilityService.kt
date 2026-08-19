@@ -208,6 +208,9 @@ class UberAccessibilityService : AccessibilityService() {
     private fun findDistanceNodes(node: AccessibilityNodeInfo?, list: MutableList<AccessibilityNodeInfo>) {
         if (node == null) return
         
+        // Skip nodes belonging to our own application to avoid self-feedback loop
+        if (node.packageName?.toString() == packageName) return
+        
         val text = node.text?.toString() ?: node.contentDescription?.toString() ?: ""
         if (text.contains("km", ignoreCase = true) || text.contains("kms", ignoreCase = true) || text.contains("kilómetros", ignoreCase = true)) {
             list.add(AccessibilityNodeInfo.obtain(node))
@@ -223,6 +226,10 @@ class UberAccessibilityService : AccessibilityService() {
     // Helper: Traverse container nodes for texts
     private fun traverseNodeSimple(node: AccessibilityNodeInfo?, texts: MutableList<String>) {
         if (node == null) return
+        
+        // Skip nodes belonging to our own application
+        if (node.packageName?.toString() == packageName) return
+        
         val text = node.text?.toString() ?: node.contentDescription?.toString() ?: ""
         if (text.isNotEmpty()) {
             texts.add(text)
@@ -294,6 +301,9 @@ class UberAccessibilityService : AccessibilityService() {
     // Recursively extracts all texts and content descriptions visible on the screen
     private fun traverseNode(node: AccessibilityNodeInfo?, texts: MutableCollection<String>) {
         if (node == null) return
+        
+        // Skip nodes belonging to our own application
+        if (node.packageName?.toString() == packageName) return
         
         val nodeText = node.text
         if (nodeText != null && nodeText.isNotEmpty()) {
