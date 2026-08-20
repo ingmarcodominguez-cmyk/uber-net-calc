@@ -253,6 +253,7 @@ class UberAccessibilityService : AccessibilityService() {
     // Helper: Find all nodes that contain a distance tag
     private fun findDistanceNodes(node: AccessibilityNodeInfo?, list: MutableList<AccessibilityNodeInfo>) {
         if (node == null) return
+        if (!node.isVisibleToUser) return // Ignore elements that are not visible to the user
         
         // Skip nodes belonging to our own application to avoid self-feedback loop
         if (node.packageName?.toString() == packageName) return
@@ -272,6 +273,7 @@ class UberAccessibilityService : AccessibilityService() {
     // Helper: Traverse container nodes for texts
     private fun traverseNodeSimple(node: AccessibilityNodeInfo?, texts: MutableList<String>) {
         if (node == null) return
+        if (!node.isVisibleToUser) return // Ignore elements that are not visible to the user
         
         // Skip nodes belonging to our own application
         if (node.packageName?.toString() == packageName) return
@@ -352,6 +354,7 @@ class UberAccessibilityService : AccessibilityService() {
     // Recursively extracts all texts and content descriptions visible on the screen
     private fun traverseNode(node: AccessibilityNodeInfo?, texts: MutableCollection<String>) {
         if (node == null) return
+        if (!node.isVisibleToUser) return // Ignore elements that are not visible to the user
         
         // Skip nodes belonging to our own application
         if (node.packageName?.toString() == packageName) return
