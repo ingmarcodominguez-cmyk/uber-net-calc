@@ -82,8 +82,9 @@ class UberAccessibilityService : AccessibilityService() {
             info.feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
             info.flags = AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS or
                          AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS or
-                         info.flags // Keep existing flags from XML
+                         AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS
             info.notificationTimeout = 100
+            info.packageNames = arrayOf("com.ubercab.driver")
             serviceInfo = info
             Log.d(tag, "Accessibility Service configured dynamically in onServiceConnected")
         } catch (e: Exception) {
@@ -551,5 +552,4 @@ class UberAccessibilityService : AccessibilityService() {
         var lastScannedText: String = "No se ha escaneado ninguna pantalla aún."
     }
 }
-
  
