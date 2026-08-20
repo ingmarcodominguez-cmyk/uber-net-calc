@@ -202,7 +202,15 @@ class UberAccessibilityService : AccessibilityService() {
                     root.recycle()
                 }
                 event.source?.let { source ->
-                    traverseNode(source, texts)
+                    // Walk up to topmost parent safely
+                    var current = AccessibilityNodeInfo.obtain(source)
+                    while (current.parent != null) {
+                        val parent = current.parent
+                        current.recycle()
+                        current = parent
+                    }
+                    traverseNode(current, texts)
+                    current.recycle()
                     source.recycle()
                 }
                 val allWindows = windows
@@ -307,7 +315,7 @@ class UberAccessibilityService : AccessibilityService() {
                     while (priceMatcher.find()) {
                         val rawPrice = priceMatcher.group(0) ?: ""
                         val parsed = cleanPrice(rawPrice)
-                        if (parsed != null && (foundPrice == null || parsed > foundPrice)) {
+                        if (parsed != null && parsed >= 150f && (foundPrice == null || parsed > foundPrice)) {
                             foundPrice = parsed
                         }
                     }
@@ -396,7 +404,7 @@ class UberAccessibilityService : AccessibilityService() {
         while (priceMatcher.find()) {
             val rawPrice = priceMatcher.group(0) ?: ""
             val parsed = cleanPrice(rawPrice)
-            if (parsed != null && (foundPrice == null || parsed > foundPrice)) {
+            if (parsed != null && parsed >= 150f && (foundPrice == null || parsed > foundPrice)) {
                 foundPrice = parsed
             }
         }
@@ -511,7 +519,7 @@ class UberAccessibilityService : AccessibilityService() {
             overlayView = inflater.inflate(R.layout.layout_overlay, null)
 
             val lp = WindowManager.LayoutParams().apply {
-                type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                type = WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
                 format = PixelFormat.TRANSLUCENT
                 flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                         WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
