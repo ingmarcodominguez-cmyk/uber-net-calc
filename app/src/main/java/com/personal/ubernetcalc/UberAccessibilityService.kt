@@ -84,7 +84,14 @@ class UberAccessibilityService : AccessibilityService() {
                          AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS or
                          info.flags // Keep existing flags from XML
             info.notificationTimeout = 100
-            info.packageNames = arrayOf("com.ubercab.driver", "android", "com.android.systemui")
+            info.packageNames = arrayOf(
+                "com.ubercab.driver",
+                "com.didiglobal.driver",
+                "com.cabify.driver",
+                "com.suol.inDriver",
+                "android",
+                "com.android.systemui"
+            )
             serviceInfo = info
             Log.d(tag, "Accessibility Service configured dynamically in onServiceConnected")
         } catch (e: Exception) {
@@ -107,8 +114,9 @@ class UberAccessibilityService : AccessibilityService() {
         }
         saveLogToFile("Activo: Evento de $eventPkg | Tipo: $eventTypeStr")
         
-        // Log all raw text from Uber to diagnose screen reading
-        if (eventPkg == "com.ubercab.driver") {
+        // Log all raw text from driver apps to diagnose screen reading
+        val driverApps = setOf("com.ubercab.driver", "com.didiglobal.driver", "com.cabify.driver", "com.suol.inDriver")
+        if (driverApps.contains(eventPkg)) {
             val rawTexts = mutableSetOf<String>()
             rootInActiveWindow?.let { root ->
                 traverseNode(root, rawTexts)
@@ -121,7 +129,7 @@ class UberAccessibilityService : AccessibilityService() {
             val allWindows = windows
             val windowPkgs = allWindows?.map { "id=${it.id}, type=${it.type}" } ?: emptyList()
             val eventTexts = event.text?.mapNotNull { it?.toString() } ?: emptyList()
-            saveLogToFile("Uber Contenido: ${rawTexts.toList()} | Windows: $windowPkgs | EventText: $eventTexts")
+            saveLogToFile("$eventPkg Contenido: ${rawTexts.toList()} | Windows: $windowPkgs | EventText: $eventTexts")
         }
         
         // Scan for screen changes
