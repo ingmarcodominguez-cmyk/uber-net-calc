@@ -10,6 +10,8 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.personal.ubernetcalc.databinding.ActivityMainBinding
 
+import java.io.File
+
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
@@ -41,7 +43,30 @@ class MainActivity : AppCompatActivity() {
         }
 
         binding.btnRefreshLog.setOnClickListener {
-            binding.tvLastScannedText.text = UberAccessibilityService.lastScannedText
+            try {
+                val file = File(cacheDir, "last_uber_screen.txt")
+                val logText = if (file.exists()) {
+                    file.readText()
+                } else {
+                    "No hay logs guardados aún. Espera a que la app de Uber envíe eventos de accesibilidad."
+                }
+                binding.tvLastScannedText.text = logText
+            } catch (e: Exception) {
+                binding.tvLastScannedText.text = "Error al leer log: ${e.message}"
+            }
+        }
+
+        binding.btnClearLog.setOnClickListener {
+            try {
+                val file = File(cacheDir, "last_uber_screen.txt")
+                if (file.exists()) {
+                    file.delete()
+                }
+                binding.tvLastScannedText.text = "Historial limpio. Esperando nuevos eventos de Uber..."
+                Toast.makeText(this, "Consola limpiada", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                binding.tvLastScannedText.text = "Error al limpiar log: ${e.message}"
+            }
         }
     }
 
