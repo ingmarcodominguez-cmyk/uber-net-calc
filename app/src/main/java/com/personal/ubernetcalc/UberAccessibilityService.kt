@@ -119,7 +119,7 @@ class UberAccessibilityService : AccessibilityService() {
                 source.recycle()
             }
             val allWindows = windows
-            val windowPkgs = allWindows?.map { "${it.packageName} (type=${it.type})" } ?: emptyList()
+            val windowPkgs = allWindows?.map { "id=${it.id}, type=${it.type}" } ?: emptyList()
             val eventTexts = event.text?.mapNotNull { it?.toString() } ?: emptyList()
             saveLogToFile("Uber Contenido: ${rawTexts.toList()} | Windows: $windowPkgs | EventText: $eventTexts")
         }
