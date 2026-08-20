@@ -138,15 +138,12 @@ class UberAccessibilityService : AccessibilityService() {
             // 2. Try event source if not found yet
             if (foundOffer == null) {
                 event.source?.let { source ->
-                    // Walk up to get root of source window
-                    var current: AccessibilityNodeInfo? = source
+                    // Walk up to get root of source window safely
+                    var current: AccessibilityNodeInfo? = AccessibilityNodeInfo.obtain(source)
                     while (current?.parent != null) {
                         val parent = current.parent
-                        val temp = current
+                        current.recycle()
                         current = parent
-                        if (temp != source) {
-                            temp.recycle()
-                        }
                     }
                     current?.let { root ->
                         foundOffer = findOfferInContainer(root)
@@ -278,10 +275,10 @@ class UberAccessibilityService : AccessibilityService() {
         val pricePattern = Pattern.compile("(?:ARS|AR\\$|\\$)[\\s\\u00A0\\u202F]*([\\d\\.,]+)", Pattern.CASE_INSENSITIVE)
 
         for (distNode in distanceNodes) {
-            // Walk up to 8 levels of parents to find the card container (needed for deep Compose layouts)
-            var ancestor: AccessibilityNodeInfo? = distNode
+            // Walk up to 8 levels of parents safely (needed for deep Compose layouts)
+            var ancestor = AccessibilityNodeInfo.obtain(distNode)
             for (level in 0..8) {
-                val parent = ancestor?.parent
+                val parent = ancestor.parent
                 if (parent != null) {
                     val containerTexts = mutableListOf<String>()
                     traverseNodeSimple(parent, containerTexts)
@@ -305,15 +302,20 @@ class UberAccessibilityService : AccessibilityService() {
                     }
                     
                     if (foundDist != null && foundPrice != null) {
+                        parent.recycle()
+                        ancestor.recycle()
                         recycleNodeList(distanceNodes)
                         return Pair(foundPrice, foundDist)
                     }
                     
+                    val prevAncestor = ancestor
                     ancestor = parent
+                    prevAncestor.recycle()
                 } else {
                     break
                 }
             }
+            ancestor.recycle()
         }
         
         recycleNodeList(distanceNodes)
