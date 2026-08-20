@@ -82,7 +82,7 @@ class UberAccessibilityService : AccessibilityService() {
             info.feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
             info.flags = AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS or
                          AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS or
-                         AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS
+                         info.flags // Keep existing flags from XML
             info.notificationTimeout = 100
             info.packageNames = arrayOf("com.ubercab.driver")
             serviceInfo = info
@@ -106,6 +106,21 @@ class UberAccessibilityService : AccessibilityService() {
             event.eventType.toString()
         }
         saveLogToFile("Activo: Evento de $eventPkg | Tipo: $eventTypeStr")
+        
+        // Log all raw text from Uber to diagnose screen reading
+        if (eventPkg == "com.ubercab.driver") {
+            val rawTexts = mutableSetOf<String>()
+            rootInActiveWindow?.let { root ->
+                traverseNode(root, rawTexts)
+                root.recycle()
+            }
+            event.source?.let { source ->
+                traverseNode(source, rawTexts)
+                source.recycle()
+            }
+            val eventTexts = event.text?.mapNotNull { it?.toString() } ?: emptyList()
+            saveLogToFile("Uber Contenido: ${rawTexts.toList()} | EventText: $eventTexts")
+        }
         
         // Scan for screen changes
         if (event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED ||
