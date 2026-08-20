@@ -371,6 +371,22 @@
                     app:strokeWidth="1dp"
                     style="@style/Widget.MaterialComponents.Button.OutlinedButton"/>
 
+                <!-- Clear Button -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_clear_log"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:text="Limpiar Consola"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    app:cornerRadius="8dp"
+                    android:backgroundTint="#6C1D1D"
+                    android:textColor="@color/white"
+                    android:layout_marginBottom="12dp"
+                    app:strokeColor="@color/overlay_border"
+                    app:strokeWidth="1dp"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"/>
+
                 <!-- Scanned Text Display -->
                 <TextView
                     android:id="@+id/tv_last_scanned_text"
