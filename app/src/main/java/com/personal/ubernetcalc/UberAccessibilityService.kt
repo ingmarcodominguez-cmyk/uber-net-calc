@@ -40,6 +40,7 @@ class UberAccessibilityService : AccessibilityService() {
     private var lastPrice = 0f
     private var lastDistance = 0f
     private var lastCalculationTime = 0L
+    private var userDismissedLastOffer = false
 
     // Handler to auto-dismiss overlay
     private val handler = Handler(Looper.getMainLooper())
@@ -163,14 +164,19 @@ class UberAccessibilityService : AccessibilityService() {
                 
                 val now = System.currentTimeMillis()
                 val timeDiff = now - lastCalculationTime
-                if (price != lastPrice || distance != lastDistance || timeDiff > 8000) {
+                
+                if (price != lastPrice || distance != lastDistance) {
                     lastPrice = price
                     lastDistance = distance
+                    userDismissedLastOffer = false
                     lastCalculationTime = now
                     
                     handler.post {
                         Toast.makeText(this, "Lector (Tarjeta): Precio $price | Dist $distance km", Toast.LENGTH_SHORT).show()
                     }
+                    showOverlayForCalculatedValues(price, distance, distanceDetails)
+                } else if (!userDismissedLastOffer && timeDiff > 8000) {
+                    lastCalculationTime = now
                     showOverlayForCalculatedValues(price, distance, distanceDetails)
                 }
             } else {
@@ -252,13 +258,13 @@ class UberAccessibilityService : AccessibilityService() {
         val distanceNodes = mutableListOf<AccessibilityNodeInfo>()
         findDistanceNodes(root, distanceNodes)
         
-        val distancePattern = Pattern.compile("([\\d,\\.]+)\\s*(?:km|kms|kil\\u00f3metros|kilometros)", Pattern.CASE_INSENSITIVE)
-        val pricePattern = Pattern.compile("(?:ARS|AR\\$|\\$)\\s*([\\d\\.,]+)", Pattern.CASE_INSENSITIVE)
+        val distancePattern = Pattern.compile("([\\d,\\.]+)[\\s\\u00A0\\u202F]*(?:km|kms|kil\\u00f3metros|kilometros)", Pattern.CASE_INSENSITIVE)
+        val pricePattern = Pattern.compile("(?:ARS|AR\\$|\\$)[\\s\\u00A0\\u202F]*([\\d\\.,]+)", Pattern.CASE_INSENSITIVE)
 
         for (distNode in distanceNodes) {
-            // Walk up to 4 levels of parents to find the card container
+            // Walk up to 8 levels of parents to find the card container (needed for deep Compose layouts)
             var ancestor: AccessibilityNodeInfo? = distNode
-            for (level in 0..4) {
+            for (level in 0..8) {
                 val parent = ancestor?.parent
                 if (parent != null) {
                     val containerTexts = mutableListOf<String>()
@@ -353,8 +359,8 @@ class UberAccessibilityService : AccessibilityService() {
         val foundDistances = mutableListOf<Float>()
 
         // Patterns to match ARS prices and distances from the Uber Driver screen
-        val pricePattern = Pattern.compile("(?:ARS|AR\\$|\\$)\\s*([\\d\\.,]+)", Pattern.CASE_INSENSITIVE)
-        val distancePattern = Pattern.compile("([\\d,\\.]+)\\s*(?:km|kms|kil\\u00f3metros|kilometros)", Pattern.CASE_INSENSITIVE)
+        val pricePattern = Pattern.compile("(?:ARS|AR\\$|\\$)[\\s\\u00A0\\u202F]*([\\d\\.,]+)", Pattern.CASE_INSENSITIVE)
+        val distancePattern = Pattern.compile("([\\d,\\.]+)[\\s\\u00A0\\u202F]*(?:km|kms|kil\\u00f3metros|kilometros)", Pattern.CASE_INSENSITIVE)
 
         // Find all prices in the combined text
         val priceMatcher = pricePattern.matcher(combinedText)
@@ -403,13 +409,17 @@ class UberAccessibilityService : AccessibilityService() {
             if (totalDistance > 0.05f) {
                 val now = System.currentTimeMillis()
                 val timeDiff = now - lastCalculationTime
-                if (foundPrice != lastPrice || totalDistance != lastDistance || timeDiff > 8000) {
+                if (foundPrice != lastPrice || totalDistance != lastDistance) {
                     lastPrice = foundPrice
                     lastDistance = totalDistance
+                    userDismissedLastOffer = false
                     lastCalculationTime = now
                     
                     val logLine = "Detected Uber offer (Fallback): Price=$foundPrice, TotalDistance=$totalDistance ($distanceDetails)"
                     saveLogToFile(logLine)
+                    showOverlayForCalculatedValues(foundPrice, totalDistance, distanceDetails)
+                } else if (!userDismissedLastOffer && timeDiff > 8000) {
+                    lastCalculationTime = now
                     showOverlayForCalculatedValues(foundPrice, totalDistance, distanceDetails)
                 }
             }
@@ -484,6 +494,7 @@ class UberAccessibilityService : AccessibilityService() {
             }
 
             overlayView?.findViewById<ImageButton>(R.id.btn_close_overlay)?.setOnClickListener {
+                userDismissedLastOffer = true
                 removeOverlay()
             }
 
