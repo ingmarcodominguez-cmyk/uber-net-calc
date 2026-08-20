@@ -84,7 +84,7 @@ class UberAccessibilityService : AccessibilityService() {
                          AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS or
                          info.flags // Keep existing flags from XML
             info.notificationTimeout = 100
-            info.packageNames = arrayOf("com.ubercab.driver")
+            info.packageNames = arrayOf("com.ubercab.driver", "android", "com.android.systemui")
             serviceInfo = info
             Log.d(tag, "Accessibility Service configured dynamically in onServiceConnected")
         } catch (e: Exception) {
@@ -118,8 +118,10 @@ class UberAccessibilityService : AccessibilityService() {
                 traverseNode(source, rawTexts)
                 source.recycle()
             }
+            val allWindows = windows
+            val windowPkgs = allWindows?.map { "${it.packageName} (type=${it.type})" } ?: emptyList()
             val eventTexts = event.text?.mapNotNull { it?.toString() } ?: emptyList()
-            saveLogToFile("Uber Contenido: ${rawTexts.toList()} | EventText: $eventTexts")
+            saveLogToFile("Uber Contenido: ${rawTexts.toList()} | Windows: $windowPkgs | EventText: $eventTexts")
         }
         
         // Scan for screen changes
@@ -509,7 +511,7 @@ class UberAccessibilityService : AccessibilityService() {
             overlayView = inflater.inflate(R.layout.layout_overlay, null)
 
             val lp = WindowManager.LayoutParams().apply {
-                type = WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
+                type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
                 format = PixelFormat.TRANSLUCENT
                 flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                         WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
