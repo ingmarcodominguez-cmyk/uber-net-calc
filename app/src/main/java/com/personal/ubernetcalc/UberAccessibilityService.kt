@@ -193,7 +193,7 @@ class UberAccessibilityService : AccessibilityService() {
                     showOverlayForCalculatedValues(price, distance, distanceDetails)
                 }
             } else {
-                // Fallback: run the old flat text scan to keep broad compatibility
+                // Fallback: run the old flat text scan to keep broad compatibility (scanning all windows)
                 val texts = mutableSetOf<String>()
                 rootInActiveWindow?.let { root ->
                     traverseNode(root, texts)
@@ -202,6 +202,15 @@ class UberAccessibilityService : AccessibilityService() {
                 event.source?.let { source ->
                     traverseNode(source, texts)
                     source.recycle()
+                }
+                val allWindows = windows
+                if (!allWindows.isNullOrEmpty()) {
+                    for (window in allWindows) {
+                        window.root?.let { root ->
+                            traverseNode(root, texts)
+                            root.recycle()
+                        }
+                    }
                 }
                 
                 if (texts.isNotEmpty()) {
@@ -551,7 +560,7 @@ class UberAccessibilityService : AccessibilityService() {
         }
 
         handler.removeCallbacks(dismissRunnable)
-        handler.postDelayed(dismissRunnable, 15000)
+        handler.postDelayed(dismissRunnable, 45000) // 45 segundos para que te dé tiempo a leerlo manejando
     }
 
     private fun removeOverlay() {
